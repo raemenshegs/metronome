@@ -58,6 +58,7 @@
       margin: 10px;
       width: 100%;
       max-width: 250px;
+      display: block;
     }
     button {
       padding: 10px 15px;
@@ -97,14 +98,20 @@
   <div id="indicatorsContainer"></div>
 
   <div class="volume-sliders">
-    <label for="quarterVolume">Quarter Note Volume:</label>
-    <input type="range" id="quarterVolume" class="volume-slider" min="0" max="1" step="0.01" value="1">
+    <div>
+      <label for="quarterVolume">Quarter Note Volume:</label>
+      <input type="range" id="quarterVolume" class="volume-slider" min="0" max="1" step="0.01" value="1">
+    </div>
 
-    <label for="eighthVolume">Eighth Note Volume:</label>
-    <input type="range" id="eighthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.7">
+    <div>
+      <label for="eighthVolume">Eighth Note Volume:</label>
+      <input type="range" id="eighthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.7">
+    </div>
 
-    <label for="sixteenthVolume">Sixteenth Note Volume:</label>
-    <input type="range" id="sixteenthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.5">
+    <div>
+      <label for="sixteenthVolume">Sixteenth Note Volume:</label>
+      <input type="range" id="sixteenthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.5">
+    </div>
   </div>
 
   <div class="beat-buttons" id="beatButtonsContainer"></div>
