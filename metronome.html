@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Metronome</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    #bpmDisplay {
+      font-size: 2em;
+      margin: 10px;
+    }
+    .indicator {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin: 10px;
+      display: inline-block;
+      background-color: grey;
+      transition: background-color 0.1s;
+    }
+    #bpmSlider {
+      width: 100%;
+      max-width: 300px;
+    }
+    .controls, .volume-sliders, .beat-buttons {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .beat-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: center;
+    }
+    .beat-button {
+      padding: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      border: 1px solid #333;
+      background-color: lightgrey;
+      transition: background-color 0.1s;
+      width: 100%;
+      max-width: 50px;
+    }
+    .beat-button.active {
+      background-color: green;
+      color: white;
+    }
+    .volume-slider {
+      margin: 10px;
+      width: 100%;
+      max-width: 250px;
+    }
+    button {
+      padding: 10px 15px;
+      font-size: 1em;
+      flex: 1 1 auto;
+      min-width: 120px;
+    }
+    @media (max-width: 600px) {
+      #bpmDisplay {
+        font-size: 1.5em;
+      }
+      .indicator {
+        width: 40px;
+        height: 40px;
+      }
+      .volume-slider, button {
+        max-width: 100%;
+      }
+      .beat-button {
+        max-width: 40px;
+        padding: 5px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Responsive Metronome</h1>
+
+  <label for="bpmSlider">Set Tempo (BPM):</label>
+  <input type="range" id="bpmSlider" min="20" max="240" value="120">
+  <div id="bpmDisplay">BPM: 120</div>
+
+  <label for="topNumber">Top Number (1 - 15):</label>
+  <input type="number" id="topNumber" min="1" max="15" value="4">
+
+  <div id="indicatorsContainer"></div>
+
+  <div class="volume-sliders">
+    <label for="quarterVolume">Quarter Note Volume:</label>
+    <input type="range" id="quarterVolume" class="volume-slider" min="0" max="1" step="0.01" value="1">
+
+    <label for="eighthVolume">Eighth Note Volume:</label>
+    <input type="range" id="eighthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.7">
+
+    <label for="sixteenthVolume">Sixteenth Note Volume:</label>
+    <input type="range" id="sixteenthVolume" class="volume-slider" min="0" max="1" step="0.01" value="0.5">
+  </div>
+
+  <div class="beat-buttons" id="beatButtonsContainer"></div>
+
+  <div class="controls">
+    <button id="startStopButton" onclick="toggleMetronome()">Start</button>
+    <button id="tapTempoButton" onclick="tapTempo()">Tap Tempo</button>
+    <button id="clearButton" onclick="clearAllBeats()">Clear All Beats</button>
+  </div>
+
+  <script>
+    // JavaScript functionality for the metronome
+    let bpm = 120;
+    const minBpm = 20;
+    const maxBpm = 240;
+    let isPlaying = false;
+    let beatCount = 0;
+    let timeSignatureTop = 4;
+    let mainIntervalId;
+    let beatStates = []; // Stores the on/off state for each beat and subdivision
+
+    const baseFrequency = 2000;
+    const perfectFifthFrequency = baseFrequency * 1.5; // Frequency for perfect fifth
+
+    // Volume controls
+    let quarterVolume = 1.0;
+    let eighthVolume = 0.7;
+    let sixteenthVolume = 0.5;
+
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    document.getElementById("bpmSlider").addEventListener("input", function(event) {
+      bpm = Math.max(minBpm, Math.min(maxBpm, event.target.value));
+      document.getElementById("bpmDisplay").textContent = `BPM: ${bpm}`;
+      if (isPlaying) restartMetronome();
+    });
+
+    document.getElementById("topNumber").addEventListener("input", function(event) {
+      timeSignatureTop = Math.min(Math.max(parseInt(event.target.value), 1), 15);
+      setupIndicators();
+      setupBeatButtons();
+      if (isPlaying) restartMetronome();
+    });
+
+    document.getElementById("quarterVolume").addEventListener("input", event => {
+      quarterVolume = parseFloat(event.target.value);
+    });
+
+    document.getElementById("eighthVolume").addEventListener("input", event => {
+      eighthVolume = parseFloat(event.target.value);
+    });
+
+    document.getElementById("sixteenthVolume").addEventListener("input", event => {
+      sixteenthVolume = parseFloat(event.target.value);
+    });
+
+    function toggleMetronome() {
+      if (isPlaying) {
+        stopMetronome();
+      } else {
+        startMetronome();
+      }
+    }
+
+    function startMetronome() {
+      isPlaying = true;
+      document.getElementById("startStopButton").textContent = "Stop";
+      beatCount = 0;
+      setupIndicators();
+      const interval = calculateBeatInterval();
+      mainIntervalId = setInterval(playBeat, interval);
+    }
+
+    function restartMetronome() {
+      stopMetronome();
+      startMetronome();
+    }
+
+    function stopMetronome() {
+      isPlaying = false;
+      document.getElementById("startStopButton").textContent = "Start";
+      clearInterval(mainIntervalId);
+      resetIndicators();
+    }
+
+    function calculateBeatInterval() {
+      return 60000 / bpm / 4; // Divide by 4 for quarter-beat subdivisions
+    }
+
+    function playBeat() {
+      const beat = Math.floor(beatCount / 4) % timeSignatureTop;
+      const subdivision = beatCount % 4;
+      let frequency = baseFrequency;
+      let volume = sixteenthVolume;
+
+      if (subdivision === 0) {
+        frequency = perfectFifthFrequency;
+        volume = quarterVolume;
+      } else if (subdivision === 2) {
+        volume = eighthVolume;
+      }
+
+      if (beatStates[beat][subdivision]) {
+        playClickSound(frequency, volume);
+      }
+
+      const indicators = document.querySelectorAll(".indicator");
+      indicators.forEach((indicator, index) => {
+        indicator.style.backgroundColor = index === beat ? "green" : "grey";
+      });
+
+      beatCount++;
+    }
+
+    function setupIndicators() {
+      const indicatorsContainer = document.getElementById("indicatorsContainer");
+      indicatorsContainer.innerHTML = "";
+      for (let i = 0; i < timeSignatureTop; i++) {
+        const indicator = document.createElement("div");
+        indicator.classList.add("indicator");
+        indicatorsContainer.appendChild(indicator);
+      }
+    }
+
+    function setupBeatButtons() {
+      const beatButtonsContainer = document.getElementById("beatButtonsContainer");
+      beatButtonsContainer.innerHTML = "";
+      beatStates = Array(timeSignatureTop).fill(null).map(() => [true, true, true, true]);
+
+      for (let i = 0; i < timeSignatureTop; i++) {
+        const beatGroup = document.createElement("div");
+        beatGroup.classList.add("beat-group");
+
+        for (let j = 0; j < 4; j++) {
+          const button = document.createElement("button");
+          button.classList.add("beat-button", "active");
+          button.textContent = `Beat ${i + 1}.${j + 1}`;
+          button.addEventListener("click", () => toggleBeat(i, j, button));
+          beatGroup.appendChild(button);
+        }
+
+        beatButtonsContainer.appendChild(beatGroup);
+      }
+    }
+
+    function toggleBeat(beat, subdivision, button) {
+      beatStates[beat][subdivision] = !beatStates[beat][subdivision];
+      button.classList.toggle("active", beatStates[beat][subdivision]);
+    }
+
+    function resetIndicators() {
+      document.querySelectorAll(".indicator").forEach(indicator => {
+        indicator.style.backgroundColor = "grey";
+      });
+    }
+
+    function playClickSound(frequency, volume) {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.05);
+    }
+
+    function clearAllBeats() {
+      beatStates = beatStates.map(beat => beat.map(() => false));
+      document.querySelectorAll(".beat-button").forEach(button => button.classList.remove("active"));
+    }
+
+    function tapTempo() {
+      const now = Date.now();
+      tapTimes.push(now);
+
+      if (tapTimes.length > 4) tapTimes.shift();
+
+      if (tapTimes.length >= 2) {
+        const intervals = [];
+        for (let i = 1; i < tapTimes.length; i++) {
+          intervals.push(tapTimes[i] - tapTimes[i - 1]);
+        }
+        const averageInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        bpm = Math.round(60000 / averageInterval);
+
+        bpm = Math.max(minBpm, Math.min(maxBpm, bpm));
+        document.getElementById("bpmSlider").value = bpm;
+        document.getElementById("bpmDisplay").textContent = `BPM: ${bpm}`;
+        if (isPlaying) restartMetronome();
+      }
+    }
+
+    // Initial setup
+    setupIndicators();
+    setupBeatButtons();
+  </script>
+
+</body>
+</html>
